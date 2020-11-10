@@ -196,6 +196,27 @@ void ProcessGroupMPI::initMPIOnce() {
     if (std::atexit(ProcessGroupMPI::mpiExit)) {
       throw std::runtime_error("Fail to register the MPI exit handler");
     }
+    char *dpu_env = getenv("DPU_AR_ENABLE");
+    if (NULL != dpu_env) {
+        int rank, size;
+        char portname[1024];
+        char servname[1024];
+        
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+        printf("DPU_AR_ENABLED!\n");
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_Info_set(info, "ompi_global_scope", "true");
+
+        sprintf(servname, "dpu%d", rank);
+        printf ("Looking up name: %d\n", servname);
+        MPI_Lookup_name(servname, info, portname);
+
+        printf("Connecting to %s at port %s\n", servname, portname);
+        MPI_Comm_connect(portname, info, 0, MPI_COMM_SELF, &pgComm_dpu);
+    }
+
   });
 }
 

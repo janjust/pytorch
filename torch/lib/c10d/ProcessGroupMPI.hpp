@@ -216,6 +216,7 @@ class ProcessGroupMPI : public ProcessGroup {
   static int mpiThreadSupport_;
 
   MPI_Comm pgComm_;
+  MPI_Comm pgComm_dpu;
 };
 
 } // namespace c10d
