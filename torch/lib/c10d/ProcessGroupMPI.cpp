@@ -216,6 +216,7 @@ void ProcessGroupMPI::initMPIOnce() {
         printf("Connecting to %s at port %s\n", servname, portname);
         MPI_Comm pgComm_dpu;
         MPI_Comm_connect(portname, info, 0, MPI_COMM_SELF, &pgComm_dpu);
+        printf ("Connected to %s at port %s\n", servname, portname);
     }
 
   });
