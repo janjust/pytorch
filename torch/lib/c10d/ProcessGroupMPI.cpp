@@ -210,10 +210,11 @@ void ProcessGroupMPI::initMPIOnce() {
         MPI_Info_set(info, "ompi_global_scope", "true");
 
         sprintf(servname, "dpu%d", rank);
-        printf ("Looking up name: %d\n", servname);
+        printf ("Looking up name: %s\n", servname);
         MPI_Lookup_name(servname, info, portname);
 
         printf("Connecting to %s at port %s\n", servname, portname);
+        MPI_Comm pgComm_dpu;
         MPI_Comm_connect(portname, info, 0, MPI_COMM_SELF, &pgComm_dpu);
     }
 
