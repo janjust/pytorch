@@ -364,6 +364,80 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupMPI::broadcast(
   return enqueue(std::move(entry));
 }
 
+enum coll_type {
+        NO_COLL,
+        AR_COLL,
+        ATA_COLL
+};
+
+static inline void set_coll(enum coll_type ct, int *tag)
+{
+        *tag |= ct;
+        return;
+}
+
+static inline void set_dtype(MPI_Datatype dtype, int *tag)
+{
+        int a;
+        if (dtype == MPI_DATATYPE_NULL) {
+                a = 0;
+        }
+        else if (dtype == MPI_BYTE) {
+                a = 1;
+        }
+        else if (dtype == MPI_CHAR) {
+                a = 2;
+        }
+        else if (dtype == MPI_INT) {
+                a = 3;
+        }
+        else if (dtype == MPI_LONG) {
+                a = 4;
+        }
+        else if (dtype == MPI_FLOAT) {
+                a = 5;
+        }
+        else if (dtype == MPI_DOUBLE) {
+                a = 6;
+        }
+        else  {
+                a = 0;
+        }
+
+        *tag |= (a << 4);
+        return;
+}
+
+static inline void set_op(MPI_Op op, int *tag)
+{
+        int a;
+        if (op == MPI_OP_NULL) {
+                a = 0;
+        }
+        else if (op == MPI_MAX) {
+                a = 1;
+        }
+        else if (op == MPI_MIN) {
+                a = 2;
+        }
+        else if (op == MPI_SUM) {
+                a = 3;
+        }
+        else {
+                a = 0;
+        }
+
+        *tag |= (a << 20);
+        return;
+}
+
+static inline void pack_tag(enum coll_type coll, MPI_Datatype dtype, MPI_Op op, int *tag) {
+    *tag = 0;
+        set_op(op, tag);
+        set_dtype(dtype, tag);
+        set_coll(coll, tag);
+}
+
 std::shared_ptr<ProcessGroup::Work> ProcessGroupMPI::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
@@ -374,13 +448,22 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupMPI::allreduce(
         auto data = (entry->src)[0];
         c10::DeviceGuard guard(data.device());
         std::unique_lock<std::mutex> globalLock(pgGlobalMutex_);
-        MPI_CHECK(MPI_Allreduce(
+
+	int tag = 0;
+	MPI_Datatype dtype = mpiDatatype.at(data.scalar_type());
+	MPI_Op op = mpiOp.at(opts.reduceOp);
+	pack_tag(AR_COLL, dtype, op, &tag);
+
+	MPI_Send(data.data_ptr(), data.numel(), dtype, 0, tag, pgComm_dpu);
+	MPI_Recv(data.data_ptr(), data.numel(), dtype, 0, MPI_ANY_TAG, pgComm_dpu, MPI_STATUS_IGNORE);
+
+/*        MPI_CHECK(MPI_Allreduce(
             MPI_IN_PLACE,
             data.data_ptr(),
             data.numel(),
             mpiDatatype.at(data.scalar_type()),
             mpiOp.at(opts.reduceOp),
-            pgComm_));
+            pgComm_)); */
       };
   auto entry = std::unique_ptr<WorkEntry>(
       new WorkEntry(&tensors, nullptr, std::move(runFunc)));
