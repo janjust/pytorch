@@ -11,6 +11,7 @@
 
 namespace c10d {
 
+
 #define MPI_CHECK(cmd)                                                   \
   do {                                                                   \
     int mpiStatus = cmd;                                                 \
@@ -23,6 +24,8 @@ namespace c10d {
   } while (0)
 
 namespace {
+	
+	MPI_Comm pgComm_dpu;
 
 // Op mapping
 std::map<ReduceOp, MPI_Op> mpiOp = {
@@ -214,7 +217,6 @@ void ProcessGroupMPI::initMPIOnce() {
         MPI_Lookup_name(servname, info, portname);
 
         printf("Connecting to %s at port %s\n", servname, portname);
-        MPI_Comm pgComm_dpu;
         MPI_Comm_connect(portname, info, 0, MPI_COMM_SELF, &pgComm_dpu);
         printf ("Connected to %s at port %s\n", servname, portname);
     }

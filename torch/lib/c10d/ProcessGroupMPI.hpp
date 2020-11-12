@@ -15,7 +15,7 @@
 #include <mpi.h>
 
 namespace c10d {
-
+  
 // WorkEntry is the state associated with a single MPI run instance.
 // It include the source Tensor list and destination Tensor list, as well as
 // The actual run function that will operate either on src or dst or both.
@@ -216,7 +216,6 @@ class ProcessGroupMPI : public ProcessGroup {
   static int mpiThreadSupport_;
 
   MPI_Comm pgComm_;
-  MPI_Comm pgComm_dpu;
 };
 
 } // namespace c10d
