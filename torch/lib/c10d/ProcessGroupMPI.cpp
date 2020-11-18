@@ -26,6 +26,7 @@ namespace c10d {
 namespace {
 	
 	MPI_Comm pgComm_dpu;
+    	char *dpu_env = NULL;
 
 // Op mapping
 std::map<ReduceOp, MPI_Op> mpiOp = {
@@ -199,7 +200,8 @@ void ProcessGroupMPI::initMPIOnce() {
     if (std::atexit(ProcessGroupMPI::mpiExit)) {
       throw std::runtime_error("Fail to register the MPI exit handler");
     }
-    char *dpu_env = getenv("DPU_AR_ENABLE");
+    
+    dpu_env = getenv("DPU_AR_ENABLE");
     if (NULL != dpu_env) {
         int rank, size;
         char portname[1024];
@@ -454,16 +456,19 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupMPI::allreduce(
 	MPI_Op op = mpiOp.at(opts.reduceOp);
 	pack_tag(AR_COLL, dtype, op, &tag);
 
-	MPI_Send(data.data_ptr(), data.numel(), dtype, 0, tag, pgComm_dpu);
-	MPI_Recv(data.data_ptr(), data.numel(), dtype, 0, MPI_ANY_TAG, pgComm_dpu, MPI_STATUS_IGNORE);
-
-/*        MPI_CHECK(MPI_Allreduce(
-            MPI_IN_PLACE,
-            data.data_ptr(),
-            data.numel(),
-            mpiDatatype.at(data.scalar_type()),
-            mpiOp.at(opts.reduceOp),
-            pgComm_)); */
+	if (NULL != dpu_env) {
+		MPI_Send(data.data_ptr(), data.numel(), dtype, 0, tag, pgComm_dpu);
+		MPI_Recv(data.data_ptr(), data.numel(), dtype, 0, MPI_ANY_TAG, pgComm_dpu, MPI_STATUS_IGNORE);
+	}
+	else {
+		MPI_CHECK(MPI_Allreduce(
+					MPI_IN_PLACE,
+					data.data_ptr(),
+					data.numel(),
+					mpiDatatype.at(data.scalar_type()),
+					mpiOp.at(opts.reduceOp),
+					pgComm_));
+	}
       };
   auto entry = std::unique_ptr<WorkEntry>(
       new WorkEntry(&tensors, nullptr, std::move(runFunc)));
